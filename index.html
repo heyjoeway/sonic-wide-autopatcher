@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<head>
+    <title>heyjoeway's Quick N' Dirty Sonic ROM Widescreen Patcher</title>
+    <style>
+        body {
+            background-image: url(./bg.png);
+            background-position: bottom right;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-size: 500px;
+        }
+    </style>
+</head>
+<body>
+    Only supports S1 ROMs right now.<br>
+    <br>
+    <input type="file" id="file" />
+    <div id="log"></div>
+
+    <script>
+        let patches = [
+            {
+                name: "Checksum Bypass Part 1",
+                explanation: "beq.s	CheckSumCheck -> nop",
+                queries: [[0x00, 0x0D, 0x67, 0x0C]],
+                replacements: [
+                    {
+                        offset: 2,
+                        replacement: [0x4E, 0x71]
+                    }
+                ]
+            },
+            {
+                name: "Checksum Bypass Part 2",
+                explanation: "beq.w	GameInit -> bra.w	GameInit",
+                queries: [[0xFF, 0xFC, 0x67, 0x00]],
+                replacements: [
+                    {
+                        offset: 2,
+                        replacement: [0x60]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Left Boundary Part 1",
+                explanation: "moveq	#-16,d5 -> moveq	#-64,d5",
+                queries: [
+                    [0x78, 0xF0, 0x7A, 0xF0],
+                    [0x3F, 0x04, 0x7A, 0xF0],
+                    [0x38, 0x1F, 0x7A, 0xF0],
+                    [0x3F, 0x04, 0x7A, 0xF0],
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0xC0]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Left Boundary Part 2",
+                explanation: "moveq	#-16,d5 -> moveq	#-64,d5",
+                queries: [
+                    [0x38, 0x3C, 0x00, 0xE0, 0x7A, 0xF0],
+                    [0x38, 0x3C, 0x00, 0x70, 0x7A, 0xF0],
+                    [0x38, 0x3C, 0x00, 0x40, 0x7A, 0xF0],
+                ],
+                replacements: [
+                    {
+                        offset: 5,
+                        replacement: [0xC0]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Left Boundary Part 3",
+                explanation: "moveq	#-16,d5 -> moveq	#-64,d5",
+                queries: [[0x7A, 0xF0, 0x48, 0xE7, 0x0C, 0x00]],
+                replacements: [
+                    {
+                        offset: 1,
+                        replacement: [0xC0]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Right Boundary Part 1",
+                explanation: "move.w	#320,d5 -> move.w	#368,d5",
+                queries: [
+                    [0x78, 0xF0, 0x3A, 0x3C, 0x01, 0x40],
+                    [0x14, 0x80, 0x3A, 0x3C, 0x01, 0x40],
+                    [0x3F, 0x04, 0x3A, 0x3C, 0x01, 0x40],
+                    [0x38, 0x1F, 0x3A, 0x3C, 0x01, 0x40],
+                ],
+                replacements: [
+                    {
+                        offset: 5,
+                        replacement: [0x70]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Right Boundary Part 2",
+                explanation: "move.w	#320,d5 -> move.w	#368,d5",
+                queries: [
+                    [0x38, 0x3C, 0x00, 0x70, 0x3A, 0x3C, 0x01, 0x40],
+                    [0x38, 0x3C, 0x00, 0x40, 0x3A, 0x3C, 0x01, 0x40]
+                ],
+                replacements: [
+                    {
+                        offset: 7,
+                        replacement: [0x70]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Top/Bottom",
+                explanation: "moveq	#((320+16+16)/16)-1,d6 -> moveq	#((400+16+16+16)/16)-1,d6",
+                queries: [[0x7C, 0x15, 0x2E, 0x3C, 0x00, 0x80, 0x00, 0x00]],
+                replacements: [
+                    {
+                        offset: 1,
+                        replacement: [0x1B]
+                    }
+                ]
+            },
+            {
+                name: "Render objects left of screen",
+                explanation: "bmi.w	@skipObject -> nop nop",
+                queries: [[0x96, 0x51, 0x32, 0x03, 0xD2, 0x40]],
+                replacements: [
+                    {
+                        offset: 6,
+                        replacement: [0x4E, 0x71, 0x4E, 0x71]
+                    }
+                ]
+            },
+            {
+                name: "Increase right object draw distance",
+                explanation: "bmi.w	@skipObject -> nop nop",
+                queries: [[0x92, 0x40, 0x0C, 0x41, 0x01, 0x40]],
+                replacements: [
+                    {
+                        offset: 5,
+                        replacement: [0x68]
+                    }
+                ]
+            },
+            {
+                name: "Don't wrap objects around when offscreen",
+                explanation: "andi.w	#$1FF,d0 -> nop nop",
+                queries: [[0xD0, 0x43, 0x02, 0x40, 0x01, 0xFF]],
+                replacements: [
+                    {
+                        offset: 2,
+                        replacement: [0x4E, 0x71, 0x4E, 0x71]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px",
+                explanation: "andi.w	#$1FF,d0 -> nop nop",
+                queries: [[0x31, 0x7C, 0x00, 0x90, 0x00, 0x08, 0x31, 0x7C, 0x01, 0x08, 0x00, 0x0A]],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0x68]
+                    }
+                ]
+            },
+        ];
+
+        let $log = document.getElementById("log");
+
+        function log(msg) {
+            console.log(msg);
+            $log.innerHTML += `${msg}<br>`;
+        }
+
+        function downloadURL(data, fileName) {
+            const a = document.createElement('a');
+            a.href = data;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.style.display = 'none';
+            a.click();
+            a.remove();
+        }
+
+        function downloadBlob(data, fileName, mimeType) {
+            const blob = new Blob([data], {
+                type: mimeType
+            });
+            const url = window.URL.createObjectURL(blob);
+            downloadURL(url, fileName);
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        }
+
+        function applyReplacements(buffer, index, replacements) {
+            let bufferView = new Int8Array(buffer);
+            replacements.forEach(replacement => {
+                let startIndex = index + replacement.offset;
+                let replacementLength = replacement.replacement.length;
+                for (let i = 0; i < replacementLength; i++)
+                    bufferView[startIndex + i] = replacement.replacement[i];
+            });
+        }
+
+        function patch(originalBuffer) {
+            let buffer = originalBuffer.slice(0); // Create copy just in case
+            let bufferView = new Uint8Array(buffer);
+            let originalBufferView = new Uint8Array(originalBuffer);
+
+            let queries = [];
+            patches.forEach(patch => {
+                patch.queries.forEach(query => queries.push({
+                    query: query,
+                    patch: patch,
+                    index: 0
+                }));
+            });
+
+            for (let i = 0; i < buffer.byteLength; i++) {
+                let byte = originalBufferView[i];
+
+                queries.forEach(query => {
+                    let match = query.query[query.index] == byte;
+                    if (!match) {
+                        query.index = 0;
+                        match = query.query[query.index] == byte;
+                    }
+
+                    if (match) {
+                        if (query.index == query.query.length - 1) {
+                            applyReplacements(buffer, i - query.index, query.patch.replacements);
+                            log(`Applied: ${query.patch.name} @ 0x${(i - query.index).toString(16)}`);
+                            query.index = 0;
+                        } else query.index++;
+                    } else query.index = 0;
+                });
+            }
+
+            return buffer;
+        };
+
+        let $file = document.getElementById("file");
+        $file.onchange = e => {
+            $log.innerHTML = "";
+            let fileDesc = $file.files[0];
+            let reader = new FileReader();
+            reader.onload = e => {
+                log("Done!");
+                let filenameArr = fileDesc.name.split('.');
+                filenameArr.splice(-1, 0, 'wide');
+                let filename = filenameArr.join('.');
+                downloadBlob(
+                    patch(
+                        e.target.result,
+                        patches
+                    ),
+                    filename
+                );
+            };
+            reader.onerror = e => {
+                log("Error");
+                log(e);
+            };
+            reader.readAsArrayBuffer(fileDesc);
+        };
+    </script>
+</body>
