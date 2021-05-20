@@ -12,7 +12,6 @@
     </style>
 </head>
 <body>
-    Only supports S1 ROMs right now.<br>
     <br>
     <input type="file" id="file" />
     <div id="log"></div>
@@ -49,6 +48,7 @@
                     [0x3F, 0x04, 0x7A, 0xF0],
                     [0x38, 0x1F, 0x7A, 0xF0],
                     [0x3F, 0x04, 0x7A, 0xF0],
+                    [0x38, 0x01, 0x7A, 0xF0], // S2
                 ],
                 replacements: [
                     {
@@ -64,6 +64,7 @@
                     [0x38, 0x3C, 0x00, 0xE0, 0x7A, 0xF0],
                     [0x38, 0x3C, 0x00, 0x70, 0x7A, 0xF0],
                     [0x38, 0x3C, 0x00, 0x40, 0x7A, 0xF0],
+                    [0x48, 0xE7, 0x0E, 0x00, 0x7A, 0xF0], // S2
                 ],
                 replacements: [
                     {
@@ -114,7 +115,7 @@
                 ]
             },
             {
-                name: "Drawing Top/Bottom",
+                name: "Drawing Top/Bottom Part 1",
                 explanation: "moveq	#((320+16+16)/16)-1,d6 -> moveq	#((400+16+16+16)/16)-1,d6",
                 queries: [[0x7C, 0x15, 0x2E, 0x3C, 0x00, 0x80, 0x00, 0x00]],
                 replacements: [
@@ -125,9 +126,23 @@
                 ]
             },
             {
+                name: "Drawing Top/Bottom Part 2",
+                explanation: "moveq	#((320+16+16)/16)-1,d6 -> moveq	#((400+16+16+16)/16)-1,d6",
+                queries: [[0x7C, 0x15, 0xDA, 0x53]], // S2
+                replacements: [
+                    {
+                        offset: 1,
+                        replacement: [0x1F]
+                    }
+                ]
+            },
+            {
                 name: "Render objects left of screen",
                 explanation: "bmi.w	@skipObject -> nop nop",
-                queries: [[0x96, 0x51, 0x32, 0x03, 0xD2, 0x40]],
+                queries: [
+                    [0x96, 0x51, 0x32, 0x03, 0xD2, 0x40],
+                    [0x96, 0x54, 0x32, 0x03, 0xD2, 0x40]
+                ],
                 replacements: [
                     {
                         offset: 6,
@@ -136,7 +151,7 @@
                 ]
             },
             {
-                name: "Increase right object draw distance",
+                name: "Increase right object draw distance Part 1",
                 explanation: "bmi.w	@skipObject -> nop nop",
                 queries: [[0x92, 0x40, 0x0C, 0x41, 0x01, 0x40]],
                 replacements: [
@@ -147,19 +162,41 @@
                 ]
             },
             {
-                name: "Don't wrap objects around when offscreen",
-                explanation: "andi.w	#$1FF,d0 -> nop nop",
-                queries: [[0xD0, 0x43, 0x02, 0x40, 0x01, 0xFF]],
+                name: "Increase right object draw distance Part 2",
+                explanation: "",
+                queries: [[0x0C, 0x40, 0x02, 0x80, 0x62, 0x00, 0x00, 0x06]], // S2
                 replacements: [
                     {
-                        offset: 2,
-                        replacement: [0x4E, 0x71, 0x4E, 0x71]
+                        offset: 3,
+                        replacement: [0xD0]
                     }
                 ]
             },
             {
-                name: "Move HUD left 40px",
-                explanation: "andi.w	#$1FF,d0 -> nop nop",
+                name: "Increase right object draw distance Part 3",
+                explanation: "",
+                queries: [[0x92, 0x40, 0x0C, 0x41, 0x01, 0xE0]], // S2
+                replacements: [
+                    {
+                        offset: 5,
+                        replacement: [0x90]
+                    }
+                ]
+            },
+            {
+                name: "Don't wrap objects around when offscreen",
+                explanation: "andi.w	#$1FF,d0 -> nop nop nop nop nop",
+                queries: [[0xD0, 0x43, 0x02, 0x40, 0x01, 0xFF]],
+                replacements: [
+                    {
+                        offset: 2,
+                        replacement: [0x4E, 0x71, 0x4E, 0x71, 0x4E, 0x71, 0x4E, 0x71, 0x4E, 0x71]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S1)",
+                explanation: "",
                 queries: [[0x31, 0x7C, 0x00, 0x90, 0x00, 0x08, 0x31, 0x7C, 0x01, 0x08, 0x00, 0x0A]],
                 replacements: [
                     {
@@ -168,6 +205,71 @@
                     }
                 ]
             },
+            {
+                name: "Move HUD left 40px (S2) Part 1",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0x90, 0x34, 0x3C, 0x01, 0x08],
+                    [0x36, 0x3C, 0x00, 0x90, 0x34, 0x3C, 0x01, 0x88]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0x68]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 2",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0xC0, 0x34, 0x3C, 0x01, 0x18]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0x98]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 3",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x01, 0x10, 0x34, 0x3C, 0x01, 0xB8]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0xE8]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 4",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0xB8, 0x34, 0x3C, 0x01, 0x08]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0x90]
+                    }
+                ]
+            },
+            {
+                name: "Ring manager right boundary (S2)",
+                queries: [
+                    [0x06, 0x44, 0x01, 0x50, 0x60, 0x04]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        replacement: [0xF0]
+                    }
+                ]
+            }
         ];
 
         let $log = document.getElementById("log");
