@@ -12,12 +12,27 @@
     </style>
 </head>
 <body>
-    Only supports S1 ROMs right now.<br>
+    Supports S1 and S2 roms. Not guaranteed to be compatible with all.
     <br>
     <input type="file" id="file" />
     <div id="log"></div>
 
     <script>
+        let newcode = {
+            "S2 RingManager Left Boundary": {
+                explanation: `
+1/       0 : =$14                Widescreen_Columns:	equ 20
+2/       0 :                     
+3/       0 : 0444 00A8               subi.w	#(Widescreen_Columns*8)+8,d4
+4/       4 : 6202                    bhi.s	+
+5/       6 : 7801                    moveq	#1,d4
+6/       8 :                     +
+7/       8 : 4E75                    rts
+                `,
+                data: [0x04, 0x44, 0x00, 0xA8, 0x62, 0x02, 0x78, 0x01, 0x4E, 0x75]
+            } 
+        };
+
         let patches = [
             {
                 name: "Checksum Bypass Part 1",
@@ -26,7 +41,7 @@
                 replacements: [
                     {
                         offset: 2,
-                        replacement: [0x4E, 0x71]
+                        data: [0x4E, 0x71]
                     }
                 ]
             },
@@ -37,7 +52,7 @@
                 replacements: [
                     {
                         offset: 2,
-                        replacement: [0x60]
+                        data: [0x60]
                     }
                 ]
             },
@@ -49,11 +64,12 @@
                     [0x3F, 0x04, 0x7A, 0xF0],
                     [0x38, 0x1F, 0x7A, 0xF0],
                     [0x3F, 0x04, 0x7A, 0xF0],
+                    [0x38, 0x01, 0x7A, 0xF0], // S2
                 ],
                 replacements: [
                     {
                         offset: 3,
-                        replacement: [0xA0]
+                        data: [0xA0]
                     }
                 ]
             },
@@ -64,11 +80,12 @@
                     [0x38, 0x3C, 0x00, 0xE0, 0x7A, 0xF0],
                     [0x38, 0x3C, 0x00, 0x70, 0x7A, 0xF0],
                     [0x38, 0x3C, 0x00, 0x40, 0x7A, 0xF0],
+                    [0x48, 0xE7, 0x0E, 0x00, 0x7A, 0xF0], // S2
                 ],
                 replacements: [
                     {
                         offset: 5,
-                        replacement: [0xA0]
+                        data: [0xA0]
                     }
                 ]
             },
@@ -79,7 +96,7 @@
                 replacements: [
                     {
                         offset: 1,
-                        replacement: [0xA0]
+                        data: [0xA0]
                     }
                 ]
             },
@@ -95,7 +112,7 @@
                 replacements: [
                     {
                         offset: 5,
-                        replacement: [0x90]
+                        data: [0x90]
                     }
                 ]
             },
@@ -109,65 +126,190 @@
                 replacements: [
                     {
                         offset: 7,
-                        replacement: [0x90]
+                        data: [0x90]
                     }
                 ]
             },
             {
-                name: "Drawing Top/Bottom",
+                name: "Drawing Top/Bottom Part 1",
                 explanation: "moveq	#((320+16+16)/16)-1,d6 -> moveq	#((400+16+16+16)/16)-1,d6",
                 queries: [[0x7C, 0x15, 0x2E, 0x3C, 0x00, 0x80, 0x00, 0x00]],
                 replacements: [
                     {
                         offset: 1,
-                        replacement: [0x1F]
+                        data: [0x1F]
+                    }
+                ]
+            },
+            {
+                name: "Drawing Top/Bottom Part 2",
+                explanation: "moveq	#((320+16+16)/16)-1,d6 -> moveq	#((400+16+16+16)/16)-1,d6",
+                queries: [[0x7C, 0x15, 0xDA, 0x53]], // S2
+                replacements: [
+                    {
+                        offset: 1,
+                        data: [0x1F]
                     }
                 ]
             },
             {
                 name: "Render objects left of screen",
                 explanation: "bmi.w	@skipObject -> nop nop",
-                queries: [[0x96, 0x51, 0x32, 0x03, 0xD2, 0x40]],
+                queries: [
+                    [0x96, 0x51, 0x32, 0x03, 0xD2, 0x40],
+                    [0x96, 0x54, 0x32, 0x03, 0xD2, 0x40]
+                ],
                 replacements: [
                     {
                         offset: 6,
-                        replacement: [0x4E, 0x71, 0x4E, 0x71]
+                        data: [0x4E, 0x71, 0x4E, 0x71]
                     }
                 ]
             },
             {
-                name: "Increase right object draw distance",
+                name: "Increase right object draw distance Part 1",
                 explanation: "bmi.w	@skipObject -> nop nop",
                 queries: [[0x92, 0x40, 0x0C, 0x41, 0x01, 0x40]],
                 replacements: [
                     {
                         offset: 5,
-                        replacement: [0xE0]
+                        data: [0xE0]
+                    }
+                ]
+            },
+            {
+                name: "Increase right object draw distance Part 2",
+                explanation: "",
+                queries: [[0x0C, 0x40, 0x02, 0x80, 0x62, 0x00, 0x00, 0x06]], // S2
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0xD0]
+                    }
+                ]
+            },
+            {
+                name: "Increase right object draw distance Part 3",
+                explanation: "",
+                queries: [[0x92, 0x40, 0x0C, 0x41, 0x01, 0xE0]], // S2
+                replacements: [
+                    {
+                        offset: 5,
+                        data: [0x90]
                     }
                 ]
             },
             {
                 name: "Don't wrap objects around when offscreen",
-                explanation: "andi.w	#$1FF,d0 -> nop nop",
-                queries: [[0xD0, 0x43, 0x02, 0x40, 0x01, 0xFF]],
+                explanation: "andi.w	#$1FF,d0 -> nop nop nop nop nop",
+                queries: [[0xD0, 0x43, 0x02, 0x40, 0x01, 0xFF, 0x66]],
                 replacements: [
                     {
                         offset: 2,
-                        replacement: [0x4E, 0x71, 0x4E, 0x71]
+                        data: [0x4E, 0x71, 0x4E, 0x71, 0x4E, 0x71, 0x4E, 0x71]
                     }
                 ]
             },
             {
-                name: "Move HUD left 40px",
-                explanation: "andi.w	#$1FF,d0 -> nop nop",
+                name: "Move HUD left 40px (S1)",
+                explanation: "",
                 queries: [[0x31, 0x7C, 0x00, 0x90, 0x00, 0x08, 0x31, 0x7C, 0x01, 0x08, 0x00, 0x0A]],
                 replacements: [
                     {
                         offset: 3,
-                        replacement: [0x68]
+                        data: [0x68]
                     }
                 ]
             },
+            {
+                name: "Move HUD left 40px (S2) Part 1",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0x90, 0x34, 0x3C, 0x01, 0x08],
+                    [0x36, 0x3C, 0x00, 0x90, 0x34, 0x3C, 0x01, 0x88]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0x68]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 2",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0xC0, 0x34, 0x3C, 0x01, 0x18]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0x98]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 3",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x01, 0x10, 0x34, 0x3C, 0x01, 0xB8]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0xE8]
+                    }
+                ]
+            },
+            {
+                name: "Move HUD left 40px (S2) Part 4",
+                explanation: "",
+                queries: [
+                    [0x36, 0x3C, 0x00, 0xB8, 0x34, 0x3C, 0x01, 0x08]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0x90]
+                    }
+                ]
+            },
+            {
+                name: "Ring manager right boundary (S2)",
+                queries: [
+                    [0x06, 0x44, 0x01, 0x50, 0x60, 0x04]
+                ],
+                replacements: [
+                    {
+                        offset: 3,
+                        data: [0xF0]
+                    }
+                ]
+            },
+            {
+                name: "Ring manager left boundary (S2) Part 1",
+                queries: [
+                    [0x51, 0x44, 0x62, 0x08, 0x78, 0x01]
+                ],
+                replacements: [
+                    {
+                        offset: 0,
+                        data: "S2 RingManager Left Boundary"
+                    }
+                ]
+            },
+            {
+                name: "Ring manager left boundary (S2) Part 2",
+                queries: [
+                    [0x06, 0x44, 0x01, 0x50, 0x60, 0x04]
+                ],
+                replacements: [
+                    {
+                        offset: 2,
+                        data: [0x02, 0x90]
+                    }
+                ]
+            }
         ];
 
         let $log = document.getElementById("log");
@@ -196,19 +338,51 @@
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
         }
 
-        function applyReplacements(buffer, index, replacements) {
-            let bufferView = new Int8Array(buffer);
+        function longWordToByteArray(number) {
+            let arr = [];
+            arr[0] = (number & 0xFF000000) >> 24;
+            arr[1] = (number & 0x00FF0000) >> 16;
+            arr[2] = (number & 0x0000FF00) >> 8;
+            arr[3] = (number & 0x000000FF) >> 0;
+            return arr;
+        }
+
+        function applyReplacements(bufferView, index, replacements) {
             replacements.forEach(replacement => {
                 let startIndex = index + replacement.offset;
-                let replacementLength = replacement.replacement.length;
-                for (let i = 0; i < replacementLength; i++)
-                    bufferView[startIndex + i] = replacement.replacement[i];
+                let replacementData = replacement.data;
+
+                if (typeof(replacementData) === "string") {
+                    let newcodeKey = replacementData;
+                    let newcodeItem = newcode[newcodeKey];
+                    if (typeof(newcodeItem.location) === "undefined") {
+                        newcodeItem.location = bufferView.byteLength;
+                        let newcodeData = new Uint8Array(newcodeItem.data); 
+                        let newBufferView = new Uint8Array(bufferView.length + newcodeData.length);
+                        newBufferView.set(bufferView);
+                        newBufferView.set(newcodeData, bufferView.length);
+                        bufferView = newBufferView;
+                        log(`Added Data: ${newcodeKey} @ 0x${newcodeItem.location.toString(16)}`);
+                    }
+                    let newCodeLocation = newcodeItem.location;
+                    let replacement = [ 0x4E, 0xB9 ]; // jsr (long?)
+                    replacementData = replacement.concat(longWordToByteArray(newCodeLocation));
+                }
+
+                bufferView.set(new Uint8Array(replacementData), startIndex);
+                // let replacementLength = replacementData.length;
+                // for (let i = 0; i < replacementLength; i++)
+                    // bufferView[startIndex + i] = replacementData[i];
             });
+            return bufferView;
         }
 
         function patch(originalBuffer) {
-            let buffer = originalBuffer.slice(0); // Create copy just in case
-            let bufferView = new Uint8Array(buffer);
+            Object.keys(newcode).forEach(key => {
+                delete newcode[key].location;
+            });
+
+            let bufferView = new Uint8Array(originalBuffer.slice(0)); // Create copy just in case
             let originalBufferView = new Uint8Array(originalBuffer);
 
             let queries = [];
@@ -220,7 +394,7 @@
                 }));
             });
 
-            for (let i = 0; i < buffer.byteLength; i++) {
+            for (let i = 0; i < originalBufferView.byteLength; i++) {
                 let byte = originalBufferView[i];
 
                 queries.forEach(query => {
@@ -232,7 +406,7 @@
 
                     if (match) {
                         if (query.index == query.query.length - 1) {
-                            applyReplacements(buffer, i - query.index, query.patch.replacements);
+                            bufferView = applyReplacements(bufferView, i - query.index, query.patch.replacements);
                             log(`Applied: ${query.patch.name} @ 0x${(i - query.index).toString(16)}`);
                             query.index = 0;
                         } else query.index++;
@@ -240,7 +414,7 @@
                 });
             }
 
-            return buffer;
+            return bufferView;
         };
 
         let $file = document.getElementById("file");
